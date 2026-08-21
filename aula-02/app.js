@@ -13,8 +13,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({
     servico: 'TechNova API - Aula 02 TF',
-    aluno: 'SEU NOME AQUI',
-    ra: 'SEU RA AQUI',
+    aluno: 'GABRIEL REIS CUNHA',
+    ra: '6325149',
     status: 'online',
     banco: `${DB_HOST}:${DB_PORT}/${DB_NAME}`,
     cache: `${REDIS_HOST}:${REDIS_PORT}`,
