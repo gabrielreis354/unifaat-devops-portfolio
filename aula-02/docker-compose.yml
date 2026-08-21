@@ -1,0 +1,79 @@
+# Aula 02 - TechNova | Stack: API Node.js 20 (Express) + PostgreSQL 15 + Redis 7
+# Variaveis interpoladas a partir do arquivo .env (padrao ${VAR:-default}).
+# Obs.: a chave "version" foi omitida de proposito (obsoleta no Docker Compose v2).
+
+services:
+  # ---------- API Node.js 20 / Express ----------
+  api:
+    build: .
+    container_name: technova_api
+    ports:
+      - "${API_PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      DB_HOST: postgres          # nome do servico = hostname na rede interna
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-technova}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ---------- PostgreSQL 15 ----------
+  postgres:
+    image: postgres:15-alpine
+    container_name: technova_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-technova}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-technova123}
+      POSTGRES_DB: ${POSTGRES_DB:-technova}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # volume nomeado = persistencia
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # ---------- Redis 7 (cache) ----------
+  redis:
+    image: redis:7-alpine
+    container_name: technova_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+# ---------- Rede bridge customizada ----------
+networks:
+  app-network:
+    driver: bridge
+
+# ---------- Volume nomeado ----------
+volumes:
+  postgres_data:
