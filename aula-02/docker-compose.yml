@@ -1,21 +1,26 @@
 # Aula 02 - TechNova | Stack: API Node.js 20 (Express) + PostgreSQL 15 + Redis 7
-# Variaveis interpoladas a partir do arquivo .env (padrao ${VAR:-default}).
+# Todas as variaveis sao interpoladas do arquivo .env (nada hardcoded).
+# Copie .env.example para .env e ajuste os valores antes de subir a stack.
 # Obs.: a chave "version" foi omitida de proposito (obsoleta no Docker Compose v2).
 
 services:
   # ---------- API Node.js 20 / Express ----------
+  # Construida a partir do Dockerfile local; so sobe apos postgres e redis healthy.
   api:
     build: .
     container_name: technova_api
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "${PORT}:3000"
     environment:
-      PORT: 3000
-      DB_HOST: postgres          # nome do servico = hostname na rede interna
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-technova}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      PORT: ${PORT}
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,18 +37,20 @@ services:
       - app-network
 
   # ---------- PostgreSQL 15 ----------
+  # Imagem alpine + volume nomeado para persistir os dados entre recriacoes.
   postgres:
     image: postgres:15-alpine
     container_name: technova_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-technova}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-technova123}
-      POSTGRES_DB: ${POSTGRES_DB:-technova}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data   # volume nomeado = persistencia
     healthcheck:
+      # $$ escapa a variavel para ser resolvida DENTRO do container (runtime)
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
@@ -58,7 +65,7 @@ services:
     image: redis:7-alpine
     container_name: technova_redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -69,11 +76,11 @@ services:
     networks:
       - app-network
 
-# ---------- Rede bridge customizada ----------
+# ---------- Rede bridge customizada (conecta os 3 servicos) ----------
 networks:
   app-network:
     driver: bridge
 
-# ---------- Volume nomeado ----------
+# ---------- Volume nomeado (persistencia do PostgreSQL) ----------
 volumes:
   postgres_data:
