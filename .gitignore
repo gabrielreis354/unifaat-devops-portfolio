@@ -1,0 +1,21 @@
+# Credenciais e segredos (NUNCA versionar)
+aws-creds.sh
+.env
+*.tfvars
+*.tfvars.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Chaves SSH
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db

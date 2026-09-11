@@ -1,0 +1,7 @@
+$ ssh -i ~/.ssh/technova-key ec2-user@54.227.232.230
+$ psql -h technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com -U technova_admin -d technova -c "SELECT version();"
+
+                                              version
+---------------------------------------------------------------------------------------------------
+ PostgreSQL 15.17 on x86_64-pc-linux-gnu, compiled by x86_64-pc-linux-gnu-gcc (GCC) 12.4.0, 64-bit
+(1 row)
