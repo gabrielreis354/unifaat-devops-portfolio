@@ -1,0 +1,11 @@
+$ psql -h technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com -U technova_admin -d technova
+CREATE TABLE
+INSERT 0 3
+
+technova=> SELECT * FROM orders;
+ id | customer_name |       product       | quantity |  total  |         created_at
+----+---------------+---------------------+----------+---------+----------------------------
+  1 | Maria Silva   | Laptop TechNova Pro |        1 | 4599.90 | 2026-09-11 01:28:18.231431
+  2 | Joao Santos   | Monitor 27"         |        2 | 2398.00 | 2026-09-11 01:28:18.231431
+  3 | Ana Costa     | Teclado Mecanico    |        3 |  897.00 | 2026-09-11 01:28:18.231431
+(3 rows)

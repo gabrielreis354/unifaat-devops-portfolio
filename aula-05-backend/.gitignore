@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Credenciais AWS Academy (NUNCA versionar)
+aws-creds.sh
+.env
+
+# Nome do bucket gerado pelo bootstrap (varia a cada execucao)
+backend-bucket.txt

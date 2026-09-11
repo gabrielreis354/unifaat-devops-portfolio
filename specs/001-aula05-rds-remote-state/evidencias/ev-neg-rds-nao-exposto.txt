@@ -1,0 +1,2 @@
+$ timeout 8 bash -c "echo > /dev/tcp/technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com/5432"
+(timeout - conexao recusada/nao roteada a partir de fora da VPC)

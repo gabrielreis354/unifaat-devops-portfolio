@@ -1,0 +1,5 @@
+# terraform.tfvars.example
+# Copie para terraform.tfvars (que esta no .gitignore) e ajuste a senha.
+
+aws_region  = "us-east-1"
+db_password = "TROQUE-ME-por-uma-senha-forte"

@@ -1,0 +1,7 @@
+connection_string = "psql -h technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com -U technova_admin -d technova -p 5432"
+ec2_public_ip = "54.227.232.230"
+rds_address = "technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com"
+rds_database_name = "technova"
+rds_endpoint = "technova-db.cxhwj2zlyovj.us-east-1.rds.amazonaws.com:5432"
+rds_port = 5432
+vpc_id = "vpc-029a8e3907fcf65ab"
