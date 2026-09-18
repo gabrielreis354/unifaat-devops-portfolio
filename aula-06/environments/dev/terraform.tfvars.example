@@ -1,0 +1,5 @@
+# terraform.tfvars.example
+# Copie para terraform.tfvars (esta no .gitignore) e ajuste a senha.
+# Senha: apenas alfanumericos (evite @ / " - podem quebrar o RDS).
+
+db_password = "TechNovaDev2026Senha"

@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Variavel com segredo (senha do banco)
+terraform.tfvars
+
+# Credenciais AWS Academy (NUNCA versionar)
+aws-creds.sh
+.env
