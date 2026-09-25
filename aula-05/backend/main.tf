@@ -22,6 +22,7 @@ provider "aws" {
   default_tags {
     tags = {
       Project = "TechNova"
+      Aula    = "05"
       Purpose = "Terraform Remote State"
     }
   }

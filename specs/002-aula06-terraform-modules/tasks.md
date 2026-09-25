@@ -33,7 +33,7 @@
 - [x] C2. `main.tf`: `aws_instance.this`.
 - [x] C3. `outputs.tf`: `instance_id`, `public_ip`, `private_ip`.
 
-## Bloco D — `modules/rds/` 🖥️ (baseado em `aula-05-rds/rds.tf`)
+## Bloco D — `modules/rds/` 🖥️ (baseado em `aula-05/rds.tf`)
 
 - [x] D1. `variables.tf`: `db_name`, `db_username`, `db_password`
       (`sensitive=true`, sem default), `subnet_ids`, `security_group_ids`,

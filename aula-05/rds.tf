@@ -5,10 +5,9 @@ resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet-group"
   subnet_ids = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
-  tags = {
-    Name    = "${var.project_name}-db-subnet-group"
-    Project = var.project_name
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-db-subnet-group"
+  })
 }
 
 # Security Group do RDS - PostgreSQL (5432) apenas de dentro da VPC
@@ -33,10 +32,9 @@ resource "aws_security_group" "rds" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name    = "${var.project_name}-rds-sg"
-    Project = var.project_name
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-rds-sg"
+  })
 }
 
 # Instancia RDS PostgreSQL (Free Tier)
@@ -71,9 +69,7 @@ resource "aws_db_instance" "main" {
 
   performance_insights_enabled = false
 
-  tags = {
-    Name    = "${var.project_name}-rds"
-    Project = var.project_name
-    Aula    = "05"
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-rds"
+  })
 }

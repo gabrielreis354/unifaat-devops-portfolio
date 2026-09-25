@@ -1,5 +1,5 @@
 # main.tf - modulo rds
-# Adaptado de aula-05-rds/rds.tf (ja validado na aula-05), parametrizado.
+# Adaptado de aula-05/rds.tf (ja validado na aula-05), parametrizado.
 
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-${var.environment}-db-subnet-group"
