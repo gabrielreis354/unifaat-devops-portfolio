@@ -30,12 +30,12 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
 
 ### Dentro do escopo
 
-- **Módulo raiz `aula-05-backend/`** (infra de state):
+- **Módulo raiz `aula-05/backend/`** (infra de state):
   - Bucket S3 com nome globalmente único (sufixo aleatório), versionamento,
     criptografia server-side e Block Public Access (4 flags = true).
   - Tabela DynamoDB com partition key `LockID` (String), billing PAY_PER_REQUEST.
   - Outputs: nome do bucket, ARN do bucket, nome da tabela.
-- **Módulo raiz `aula-05-rds/`** (infra principal):
+- **Módulo raiz `aula-05/`** (infra principal):
   - VPC `10.0.0.0/16` com 1 subnet pública + 2 subnets privadas em **AZs diferentes**,
     Internet Gateway, route table pública associada.
   - DB Subnet Group com as 2 subnets privadas.
@@ -58,8 +58,8 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
   2. Conexão EC2 → RDS (`psql ... -c "SELECT version();"`).
   3. Dados persistentes (tabela `orders` criada + `SELECT * FROM orders;`).
   4. `terraform plan` limpo ("No changes") após o apply.
-- **Teardown:** `terraform destroy` no `aula-05-rds`, esvaziamento do bucket
-  (incluindo versões) e `terraform destroy` no `aula-05-backend` — **na mesma sessão**,
+- **Teardown:** `terraform destroy` no `aula-05`, esvaziamento do bucket
+  (incluindo versões) e `terraform destroy` no `aula-05/backend` — **na mesma sessão**,
   logo após as evidências.
 - **Entrega da disciplina:** `entregas/aula-05/6325149/entrega.md` no fork de
   `devops_20262`, branch `entregas/aula-05/6325149`, PR para `main`.
@@ -80,7 +80,7 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
 
 ## 4. Requisitos funcionais
 
-**Backend (`aula-05-backend/`)**
+**Backend (`aula-05/backend/`)**
 - RF1: Criar bucket S3 com sufixo aleatório no nome (`random_id` ou equivalente).
 - RF2: Habilitar versionamento no bucket.
 - RF3: Habilitar criptografia server-side no bucket.
@@ -89,14 +89,14 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
   `billing_mode = "PAY_PER_REQUEST"`.
 - RF6: Exportar via output o nome do bucket, o ARN do bucket e o nome da tabela.
 
-**Rede (`aula-05-rds/`)**
+**Rede (`aula-05/`)**
 - RF7: VPC `10.0.0.0/16` com DNS hostnames/support habilitados.
 - RF8: 1 subnet pública (`map_public_ip_on_launch = true`) com rota `0.0.0.0/0` → IGW.
 - RF9: 2 subnets privadas em AZs distintas (`names[0]` e `names[1]` de
   `aws_availability_zones`), sem rota para a internet.
 - RF10: DB Subnet Group contendo exatamente as 2 subnets privadas.
 
-**Banco (`aula-05-rds/`)**
+**Banco (`aula-05/`)**
 - RF11: RDS PostgreSQL 15, `db.t3.micro`, storage 20 GB `gp2`, `multi_az = false`,
   `publicly_accessible = false`, `storage_encrypted = true`, `skip_final_snapshot = true`.
 - RF12: `db_name`, `username` e `password` vindos de variáveis; `password` com
@@ -104,7 +104,7 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
 - RF13: Security Group do RDS permite ingress TCP 5432 **apenas** do CIDR da VPC
   (`cidr_blocks = [var.vpc_cidr]`).
 
-**Servidor (`aula-05-rds/`)**
+**Servidor (`aula-05/`)**
 - RF14: EC2 `t2.micro` na subnet pública, AMI Amazon Linux via data source
   `most_recent`.
 - RF15: Key pair criado com `ssh-keygen -t rsa -b 4096 -f ~/.ssh/technova-key` e
@@ -112,14 +112,14 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
 - RF16: Security Group do EC2 permite ingress 22 e 3000 de `0.0.0.0/0` e egress total.
 - RF17: `user_data` instala o cliente PostgreSQL 15.
 
-**State remoto (`aula-05-rds/`)**
+**State remoto (`aula-05/`)**
 - RF18: Bloco `backend "s3"` com `bucket`, `key = "aula-05/terraform.tfstate"`,
   `region = "us-east-1"`, `encrypt = true`, `dynamodb_table = <tabela>`.
 - RF19: `terraform init -migrate-state` move o state local para o S3 sem perda de
   recursos gerenciados.
 
 **Outputs e organização**
-- RF20: Outputs no `aula-05-rds`: `rds_endpoint`, `rds_address`, `rds_port`,
+- RF20: Outputs no `aula-05`: `rds_endpoint`, `rds_address`, `rds_port`,
   `rds_database_name`, `ec2_public_ip`, `connection_string` (sem senha), `vpc_id`.
 - RF21: Código em múltiplos arquivos `.tf` por responsabilidade
   (`providers.tf`, `variables.tf`, `vpc.tf`, `rds.tf`, `ec2.tf`, `outputs.tf`).
@@ -156,15 +156,15 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
 
 ## 6. Critérios de aceitação (verificáveis)
 
-- [ ] CA1: `terraform validate` passa nos dois módulos (`aula-05-backend`, `aula-05-rds`).
-- [ ] CA2: `terraform apply` do `aula-05-backend` cria bucket S3 (versionado,
+- [ ] CA1: `terraform validate` passa nos dois módulos (`aula-05/backend`, `aula-05`).
+- [ ] CA2: `terraform apply` do `aula-05/backend` cria bucket S3 (versionado,
       criptografado, Block Public Access 4/4) e tabela DynamoDB com `LockID` (S).
       Verificável por `aws s3api get-bucket-versioning`,
       `aws s3api get-public-access-block` e `aws dynamodb describe-table`.
-- [ ] CA3: `terraform init -migrate-state` no `aula-05-rds` conclui e
+- [ ] CA3: `terraform init -migrate-state` no `aula-05` conclui e
       `aws s3 ls s3://<bucket>/aula-05/` lista `terraform.tfstate`; `terraform.tfstate`
       local fica vazio/sem recursos.
-- [ ] CA4: `terraform apply` do `aula-05-rds` cria VPC, 3 subnets (2 privadas em AZs
+- [ ] CA4: `terraform apply` do `aula-05` cria VPC, 3 subnets (2 privadas em AZs
       diferentes), IGW, RDS PostgreSQL 15 `db.t3.micro` e EC2 `t2.micro` sem erro;
       `terraform output` mostra `rds_endpoint` e `ec2_public_ip`.
 - [ ] CA5: Dado o EC2 provisionado, quando executo
@@ -174,7 +174,7 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
       retorna as linhas inseridas.
 - [ ] CA7: Tentar `psql` para o endpoint do RDS a partir de fora da VPC falha
       (timeout) — banco não exposto.
-- [ ] CA8: `terraform plan` no `aula-05-rds` após o apply mostra
+- [ ] CA8: `terraform plan` no `aula-05` após o apply mostra
       "No changes. Your infrastructure matches the configuration."
 - [ ] CA9: `git status` nos dois módulos não lista `*.tfstate`, `*.tfvars`, `*.pem`
       nem `aws-creds.sh` (todos ignorados).
@@ -199,7 +199,7 @@ Entrega da disciplina: aluno **Gabriel Reis Cunha (RA 6325149)**.
   preserva o progresso, mas as credenciais precisam ser renovadas.
 - **R4 — Ordem de destroy:** o bucket S3 precisa ser esvaziado (inclusive versões)
   antes do `terraform destroy` do backend, senão falha. Script de esvaziamento no Plan.
-- **R5 — Chave SSH:** rodar `ssh-keygen` antes do `apply` do `aula-05-rds`
+- **R5 — Chave SSH:** rodar `ssh-keygen` antes do `apply` do `aula-05`
   (a máquina não tem `~/.ssh/technova-key` ainda).
-- **Q2 — Pasta única ou duas?** A spec segue o lab: `aula-05-backend/` e `aula-05-rds/`
+- **Q2 — Pasta única ou duas?** A spec segue o lab: `aula-05/backend/` e `aula-05/`
   separadas. No PR/portfólio elas convivem dentro de `aula-05/`. OK?

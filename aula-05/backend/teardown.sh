@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # teardown.sh - Esvazia (todas as versoes + delete markers) e apaga o bucket do state.
 # Uso:  source aws-creds.sh && ./teardown.sh
-# Rode DEPOIS de `terraform destroy` no aula-05-rds e no aula-05-backend.
+# Rode DEPOIS de `terraform destroy` no aula-05 e no aula-05/backend.
 set -euo pipefail
 
 NAME_FILE="$(dirname "$0")/backend-bucket.txt"

@@ -8,12 +8,18 @@ O projeto tem **dois módulos raiz**:
 
 | Pasta | Responsabilidade |
 |-------|------------------|
-| [`aula-05-backend/`](../aula-05-backend/) | Bucket S3 + tabela DynamoDB que hospedam o state remoto |
-| `aula-05-rds/` (esta pasta) | VPC + RDS + EC2, com `backend "s3"` apontando para o módulo acima |
+| [`aula-05/backend/`](backend/) | Bucket S3 + tabela DynamoDB que hospedam o state remoto |
+| `aula-05/` (esta pasta) | VPC + RDS + EC2, com `backend "s3"` apontando para o módulo acima |
 
 ---
 
 ## Design da Estrutura
+
+### Base (`main.tf`)
+
+- `locals.common_tags` (`Project`, `Aula = "05"`), aplicado em **todos** os recursos via
+  `merge(local.common_tags, { Name = ... })`.
+- Data source das AZs disponíveis, usado pelas subnets.
 
 ### Rede (`vpc.tf`)
 
@@ -80,7 +86,7 @@ recursos dentro da minha rede".
 | Contém segredos em texto claro no repositório/máquina | Bucket privado (**Block Public Access** 4/4) + **encrypt** SSE-KMS |
 | Dois `apply` simultâneos corrompem o state | **Lock no DynamoDB** (`LockID`): o segundo `apply` espera ou falha |
 
-O módulo `aula-05-backend` provisiona isso em duas partes:
+O módulo `aula-05/backend` provisiona isso em duas partes:
 
 - **Tabela DynamoDB** (`aws_dynamodb_table`, `hash_key = "LockID"`,
   `billing_mode = "PAY_PER_REQUEST"`) — via Terraform normalmente.
@@ -97,7 +103,7 @@ O módulo `aula-05-backend` provisiona isso em duas partes:
   > (idempotente) e imprime o bloco `backend "s3"` pronto para colar;
   > `teardown.sh` esvazia (versões + delete markers) e remove o bucket no fim.
 
-O `aula-05-rds` então declara:
+O `aula-05` então declara:
 
 ```hcl
 terraform {
@@ -113,7 +119,7 @@ terraform {
 
 O bloco `backend` não aceita variáveis, então o nome do bucket (impresso pelo
 `bootstrap.sh`) e o nome da tabela (output do `terraform apply` do backend) são
-colados manualmente aqui antes do `terraform init` do `aula-05-rds`.
+colados manualmente aqui antes do `terraform init` do `aula-05`.
 
 ---
 
@@ -143,14 +149,14 @@ colados manualmente aqui antes do `terraform init` do `aula-05-rds`.
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/technova-key -N ""
 
 # 1) backend
-cd aula-05-backend
-source ../aws-creds.sh
+cd aula-05/backend
+source ../../aws-creds.sh
 ./bootstrap.sh                    # cria o bucket S3 via AWS CLI (imprime o backend "s3")
 terraform init && terraform apply # cria so a tabela DynamoDB
 #    -> copiar bucket (do bootstrap.sh) e dynamodb_table_name (output) para o backend "s3"
 
 # 2) infra principal
-cd ../aula-05-rds
+cd ..
 cp terraform.tfvars.example terraform.tfvars     # e define a senha
 terraform init          # cria o state direto no S3
 terraform apply         # VPC + RDS (5-10 min) + EC2
@@ -159,8 +165,8 @@ terraform output
 terraform plan          # "No changes." apos o apply
 
 # 3) teardown (mesma sessao, logo apos as evidencias)
-terraform destroy                               # aula-05-rds
-cd ../aula-05-backend
+terraform destroy                               # aula-05
+cd backend
 ./teardown.sh                                   # esvazia e remove o bucket
 terraform destroy                               # remove a tabela DynamoDB
 ```
@@ -182,8 +188,8 @@ mas a fonte da verdade fica no código.
 
 ## Reflexão — Spec-Driven vs. manual (Lab Parte 1 × Parte 2)
 
-O `aula-05-rds` (Lab Parte 1) foi feito seguindo um roteiro passo a passo: previsível,
-mas cada arquivo digitado à mão. O `aula-05-backend` (Lab Parte 2) partiu de uma
+O `aula-05` (Lab Parte 1) foi feito seguindo um roteiro passo a passo: previsível,
+mas cada arquivo digitado à mão. O `aula-05/backend` (Lab Parte 2) partiu de uma
 **Spec** (`../specs/001-aula05-rds-remote-state/`) — objetivo, requisitos e critérios
 de aceitação aprovados **antes** de escrever HCL.
 

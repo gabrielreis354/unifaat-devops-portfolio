@@ -22,10 +22,9 @@ resource "aws_key_pair" "main" {
   key_name   = "${var.project_name}-key"
   public_key = file("~/.ssh/technova-key.pub")
 
-  tags = {
-    Name    = "${var.project_name}-key"
-    Project = var.project_name
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-key"
+  })
 }
 
 # Security Group do EC2 - SSH e porta da API
@@ -58,10 +57,9 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name    = "${var.project_name}-ec2-sg"
-    Project = var.project_name
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-ec2-sg"
+  })
 }
 
 resource "aws_instance" "api" {
@@ -77,9 +75,7 @@ resource "aws_instance" "api" {
     yum install -y postgresql15
   EOT
 
-  tags = {
-    Name    = "${var.project_name}-api"
-    Project = var.project_name
-    Aula    = "05"
-  }
+  tags = merge(local.common_tags, {
+    Name = "${var.project_name}-api"
+  })
 }

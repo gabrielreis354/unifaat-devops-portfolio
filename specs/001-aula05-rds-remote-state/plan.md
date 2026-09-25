@@ -37,7 +37,7 @@
  │    │ encrypted, not public     │                         │
  │    └──────────────────────────┘                          │
  └─────────────────────────────────────────────────────────┘
- State: aula-05-rds ──backend s3──▶ s3://technova-terraform-state-<rand>/aula-05/terraform.tfstate
+ State: aula-05 ──backend s3──▶ s3://technova-terraform-state-<rand>/aula-05/terraform.tfstate
                                     lock ▶ dynamodb technova-terraform-locks (LockID)
 ```
 
@@ -46,7 +46,7 @@ privada-2 `10.0.4.0/24`.
 
 ## 2. Estrutura de arquivos
 
-### `unifaat-devops-portfolio/aula-05-backend/`  (state infra — apply primeiro; base: lab parte 2)
+### `unifaat-devops-portfolio/aula-05/backend/`  (state infra — apply primeiro; base: lab parte 2)
 
 | Arquivo | Conteúdo |
 |---------|----------|
@@ -62,7 +62,7 @@ Tags (lab parte 2 pede em todos os recursos): `Project = "TechNova"`,
 recurso (o lab não usa `default_tags` aqui) — ou `default_tags` no provider, equivalente
 e mais DRY. **Decisão:** `default_tags` no provider (KISS/DRY), resultado idêntico.
 
-### `unifaat-devops-portfolio/aula-05-rds/`  (infra principal; base: lab parte 1)
+### `unifaat-devops-portfolio/aula-05/`  (infra principal; base: lab parte 1)
 
 | Arquivo | Conteúdo (idêntico ao lab parte 1, seções 1.1–8.1) |
 |---------|----------|
@@ -77,7 +77,7 @@ e mais DRY. **Decisão:** `default_tags` no provider (KISS/DRY), resultado idên
 | `.gitignore` | `.terraform/`, `*.tfstate`, `*.tfstate.backup`, `terraform.tfvars`, `.terraform.lock.hcl`, `aws-creds.sh`, `*.pem`, `*.key` — lab 1.4 |
 | `README.md` | template do TF.md: design da estrutura, menor privilégio (2 exemplos + "e se usasse FullAccess"), diagrama User→SG→Recursos + fluxo EC2→RDS, comandos, reflexão manual vs Terraform, **+ reflexão Spec-Driven vs manual** (lab parte 2 §6) |
 
-Tags no `aula-05-rds`: o lab usa `tags = { Name=..., Project=var.project_name, Aula="05" }`
+Tags no `aula-05`: o lab usa `tags = { Name=..., Project=var.project_name, Aula="05" }`
 por recurso. **Decisão:** replicar esse padrão do lab por recurso (não `default_tags`),
 para ficar igual ao roteiro. `Name` específico por recurso + `Project` + `Aula = "05"`.
 
@@ -105,14 +105,14 @@ chmod 400 ~/.ssh/technova-key
 # Learner Lab verde; em unifaat-devops-portfolio/ ; source aws-creds.sh
 
 # 1) BACKEND
-cd aula-05-backend
+cd aula-05/backend
 terraform init && terraform validate && terraform plan
 terraform apply                       # ~6 recursos: random_id, bucket, versioning, sse, bpa, dynamodb
 BUCKET=$(terraform output -raw s3_bucket_name)
 TABLE=$(terraform output -raw dynamodb_table_name)
 
-# 2) INFRA PRINCIPAL — escrever BUCKET/TABLE no backend "s3" do aula-05-rds/providers.tf
-cd ../aula-05-rds
+# 2) INFRA PRINCIPAL — escrever BUCKET/TABLE no backend "s3" do aula-05/providers.tf
+cd ../aula-05
 printf 'aws_region  = "us-east-1"\ndb_password = "%s"\n' "<SENHA>" > terraform.tfvars
 terraform init                        # cria state direto no S3 (ou -migrate-state se houver local)
 terraform validate && terraform plan
@@ -127,13 +127,13 @@ ssh -i ~/.ssh/technova-key ec2-user@$(terraform output -raw ec2_public_ip)
 terraform plan   # "No changes."                                         # EV4
 
 # 4) TEARDOWN (MESMA SESSÃO, logo após evidências) — lab parte 2 §7
-cd ../aula-05-rds && terraform destroy
+cd ../aula-05 && terraform destroy
 BUCKET=...   # esvaziar versões + delete markers
 aws s3api list-object-versions --bucket $BUCKET --query 'Versions[].{Key:Key,VersionId:VersionId}' --output text \
   | while read k v; do aws s3api delete-object --bucket $BUCKET --key "$k" --version-id "$v"; done
 aws s3api list-object-versions --bucket $BUCKET --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output text \
   | while read k v; do aws s3api delete-object --bucket $BUCKET --key "$k" --version-id "$v"; done
-cd ../aula-05-backend && terraform destroy
+cd ../aula-05/backend && terraform destroy
 
 # 5) VERIFICAÇÃO PÓS-TEARDOWN
 terraform state list                                   # vazio (2x)
@@ -143,7 +143,7 @@ aws dynamodb list-tables | grep technova || echo "tabela removida"
 ```
 
 Bootstrap do `backend "s3"`: o bloco `backend` não aceita variáveis; os valores de
-bucket/tabela entram **hardcoded** no `providers.tf` do `aula-05-rds` após o apply do
+bucket/tabela entram **hardcoded** no `providers.tf` do `aula-05` após o apply do
 backend (lab parte 2 §4.3 mostra exatamente esse `providers.tf` final).
 
 ## 6. Decisões (todas alinhadas ao TF.md / lab)
@@ -155,7 +155,7 @@ backend (lab parte 2 §4.3 mostra exatamente esse `providers.tf` final).
 | 3 | `engine_version = "15"` | lab parte 1 §5.1 |
 | 4 | `backup_retention_period = 7` + janelas | lab parte 1 §5.1 |
 | 5 | Chave SSH por `ssh-keygen` + `file("~/.ssh/technova-key.pub")` | lab parte 1 §6.1 |
-| 6 | Duas pastas `aula-05-backend/` + `aula-05-rds/` | lab parte 2 (estrutura) + TF.md fluxo recomendado |
+| 6 | Duas pastas `aula-05/backend/` + `aula-05/` | lab parte 2 (estrutura) + TF.md fluxo recomendado |
 | 7 | Sem NAT Gateway / IAM Instance Profile | não pedidos pelo TF.md; NAT tem custo/hora |
 | 8 | `backend "s3"` hardcoded pós-bootstrap | limitação do Terraform (sem var em `backend`); lab §4.3 |
 
@@ -167,7 +167,7 @@ backend (lab parte 2 §4.3 mostra exatamente esse `providers.tf` final).
   nunca deixar RDS/EC2 ativos entre sessões (US$ 50 é teto, não meta).
 - **R3 destroy do bucket**: coberto pelo esvaziamento de versões + delete markers.
 - **R4 `psql` logo após o apply**: aguardar fim do cloud-init (~1-2 min) ou instalar à mão.
-- **R5 chave SSH ausente**: rodar o `ssh-keygen` da §4 antes do `terraform apply` do `aula-05-rds`.
+- **R5 chave SSH ausente**: rodar o `ssh-keygen` da §4 antes do `terraform apply` do `aula-05`.
 
 ## 8. Addendum — execução real (2026-09-10/11)
 
@@ -178,21 +178,21 @@ backend (lab parte 2 §4.3 mostra exatamente esse `providers.tf` final).
   S3 necessárias (create-bucket, put/get-versioning, put/get-encryption,
   put/get-public-access-block) funcionam normalmente.
 - **Decisão do Gabriel (Opção A):** o bucket do state é criado por
-  `aula-05-backend/bootstrap.sh` (AWS CLI puro — idempotente, com verificação e
+  `aula-05/backend/bootstrap.sh` (AWS CLI puro — idempotente, com verificação e
   impressão do bloco `backend "s3"` pronto). A tabela DynamoDB continua 100% em
   Terraform (`dynamodb.tf`). `s3.tf` e o provider `hashicorp/random` foram removidos
-  do módulo. `aula-05-backend/teardown.sh` esvazia (versões + delete markers) e
+  do módulo. `aula-05/backend/teardown.sh` esvazia (versões + delete markers) e
   apaga o bucket no fim.
 - **Resultado:** bucket `technova-terraform-state-54600b3e83155696` — versionado,
-  SSE-KMS, Block Public Access 4/4 — e state do `aula-05-rds` migrado com sucesso
+  SSE-KMS, Block Public Access 4/4 — e state do `aula-05` migrado com sucesso
   (`aws s3 ls` mostrou `aula-05/terraform.tfstate`).
 - **WSL/perf:** o provider `aws` (~700 MB) demorava a iniciar em `/mnt/c`
   ("timeout while waiting for plugin to start"). Contornado com
   `TF_DATA_DIR` apontando para o filesystem Linux (`~/.tfdata/<modulo>`).
-- **`terraform apply` do `aula-05-rds`:** 13 recursos criados; RDS levou 12m22s.
+- **`terraform apply` do `aula-05`:** 13 recursos criados; RDS levou 12m22s.
   Todas as 4 evidências (CA5-CA8) + a negativa (CA7) capturadas com sucesso —
   ver `specs/001-aula05-rds-remote-state/evidencias/`.
-- **Teardown:** `terraform destroy` do `aula-05-rds` (13 destruídos, RDS ~1m52s) →
-  bucket esvaziado e removido → `terraform destroy` do `aula-05-backend`
+- **Teardown:** `terraform destroy` do `aula-05` (13 destruídos, RDS ~1m52s) →
+  bucket esvaziado e removido → `terraform destroy` do `aula-05/backend`
   (DynamoDB destruído). Verificado CA11: nenhum recurso `technova-*` restante
   (RDS, S3, DynamoDB, EC2, VPC).

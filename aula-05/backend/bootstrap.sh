@@ -66,7 +66,7 @@ aws s3api get-bucket-encryption --bucket "$BUCKET"
 aws s3api get-public-access-block --bucket "$BUCKET"
 
 echo
-echo "==== Configure o backend \"s3\" em ../aula-05-rds/providers.tf ===="
+echo "==== Configure o backend \"s3\" em ../providers.tf ===="
 cat <<CFG
   backend "s3" {
     bucket         = "$BUCKET"

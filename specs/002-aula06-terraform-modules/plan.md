@@ -18,7 +18,7 @@
 - **Q2 (entrega.md no PR #141):** confirmado — adiciona commit à branch
   `entregas/aula-06/6325149` já aberta.
 - **R1 (módulo rds sem exemplo nos labs):** resolvido abaixo (seção 2,
-  módulo `rds`) — adaptado de `aula-05-rds/rds.tf`.
+  módulo `rds`) — adaptado de `aula-05/rds.tf`.
 
 ## 1. Arquitetura
 
@@ -72,7 +72,7 @@ Tags em todo recurso: `Name = "${project_name}-${environment}-..."`,
 
 Genérico por construção: quem chama decide as regras (API abre 80+22 de
 `0.0.0.0/0`; RDS abre 5432 só do `vpc_cidr` — igual ao padrão já usado em
-`aula-05-rds/rds.tf`, sem inventar SG-por-SG que não foi pedido).
+`aula-05/rds.tf`, sem inventar SG-por-SG que não foi pedido).
 
 ### `modules/ec2/` — base: Lab Parte 2
 
@@ -86,7 +86,7 @@ AMI resolvida **fora** do módulo (no `main.tf` de cada ambiente, via
 `data "aws_ami" "amazon_linux"`, igual ao Lab Parte 2 §3.4) e passada como
 `ami_id` — o módulo fica agnóstico de qual imagem usar.
 
-### `modules/rds/` — **sem exemplo nos labs**, adaptado de `aula-05-rds/rds.tf`
+### `modules/rds/` — **sem exemplo nos labs**, adaptado de `aula-05/rds.tf`
 
 | Arquivo | Conteúdo |
 |---|---|
@@ -180,7 +180,7 @@ Estrutura (Requisito 7 do TF.md):
 | D1 | `for_each` com map de objetos no módulo `vpc` (Lab Parte 2) | `count` com listas (Lab Parte 1) | TF.md Requisito 1 pede `for_each` explicitamente |
 | D2 | `environments/dev` e `environments/staging` como **roots separados** | 1 root + `-var-file` (padrão dos labs) | É a estrutura de diretórios exigida pelo TF.md |
 | D3 | `security-group` com `aws_security_group_rule` + `count` | `dynamic "ingress"` inline | Replica o padrão já usado no Lab (mais simples de auditar no `plan`, uma regra = um recurso) |
-| D4 | `modules/rds` novo, baseado no `aula-05-rds/rds.tf` | Copiar de algum lab | Nenhum lab cobre RDS; a base validada na aula-05 é a fonte mais confiável |
+| D4 | `modules/rds` novo, baseado no `aula-05/rds.tf` | Copiar de algum lab | Nenhum lab cobre RDS; a base validada na aula-05 é a fonte mais confiável |
 | D5 | Sem backend remoto para o state do aula-06 | Reusar backend da aula-05 | TF.md não pede; fora do escopo (SPEC) |
 | D6 | `key_name` como variável simples (sem `aws_key_pair` no módulo) | Criar key pair no módulo `ec2` | TF.md trata key pair como pré-requisito externo (dica 5 do README), não como entregável dos módulos |
 | D7 | SG do RDS por `cidr_blocks = [vpc_cidr]` | SG-por-SG | Mesma decisão tomada na aula-05 (seguir o TF/lab literalmente, sem bônus não pedido) |

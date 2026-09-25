@@ -5,7 +5,7 @@
 
 ---
 
-## Bloco A — Código `aula-05-backend/`  🖥️  (base: lab parte 2)
+## Bloco A — Código `aula-05/backend/`  🖥️  (base: lab parte 2)
 
 - [x] A1. `.gitignore` (`.terraform/`, `*.tfstate`, `*.tfstate.*`, `.terraform.lock.hcl`, `aws-creds.sh`).
 - [x] A2. `main.tf`: `terraform` block (`>=1.0`, aws `~>5.0`, random `~>3.0`) + `provider "aws"`
@@ -22,7 +22,7 @@
 - [x] A7. `terraform fmt` + `terraform init -backend=false` + `terraform validate`.
       **Verif.:** "Success! The configuration is valid."
 
-## Bloco B — Código `aula-05-rds/`  🖥️  (base: lab parte 1, seções 1.1–8.1)
+## Bloco B — Código `aula-05/`  🖥️  (base: lab parte 1, seções 1.1–8.1)
 
 - [x] B1. `.gitignore` (lab 1.4: `.terraform/`, `*.tfstate`, `*.tfstate.backup`,
       `terraform.tfvars`, `.terraform.lock.hcl`, `aws-creds.sh`, `*.pem`, `*.key`).
@@ -57,18 +57,18 @@
 - [x] C1. 👤 Learner Lab **Start Lab** verde + `aws-creds.sh` atualizado.
       🖥️ `source aws-creds.sh` → confere ARN `voclabs` (não-root).
 - [x] C2. 👤 (uma vez) `ssh-keygen -t rsa -b 4096 -f ~/.ssh/technova-key -N "" && chmod 400 ~/.ssh/technova-key`.
-- [x] C3. `cd aula-05-backend` → `terraform init` → `validate` → `plan` (~6 add) → `apply`.
+- [x] C3. `cd aula-05/backend` → `terraform init` → `validate` → `plan` (~6 add) → `apply`.
       **Verif.:** `aws s3api get-bucket-versioning` (Enabled),
       `aws s3api get-public-access-block` (4× true),
       `aws s3api get-bucket-encryption` (aws:kms),
       `aws dynamodb describe-table --table-name technova-terraform-locks` (LockID/S). → **CA2**
 - [x] C4. 🖥️ `terraform output -raw s3_bucket_name` / `dynamodb_table_name` →
-      preencher `backend "s3"` no `aula-05-rds/providers.tf`.
+      preencher `backend "s3"` no `aula-05/providers.tf`.
 
 ## Bloco D — Infra principal + state remoto  ☁️
 
-- [x] D1. 👤 senha do banco → 🖥️ `printf 'aws_region="us-east-1"\ndb_password="..."\n' > aula-05-rds/terraform.tfvars`.
-- [x] D2. `cd aula-05-rds` → `source ../aws-creds.sh` → `terraform init`
+- [x] D1. 👤 senha do banco → 🖥️ `printf 'aws_region="us-east-1"\ndb_password="..."\n' > aula-05/terraform.tfvars`.
+- [x] D2. `cd aula-05` → `source ../aws-creds.sh` → `terraform init`
       (state criado direto no S3; se houver local, `-migrate-state` + `yes`).
       **Verif.:** `aws s3 ls s3://<bucket>/aula-05/` lista `terraform.tfstate`. → **CA3**
 - [x] D3. `terraform validate && terraform plan`.
@@ -89,24 +89,24 @@
 
 ## Bloco F — Teardown  ☁️  (MESMA SESSÃO, logo após E) — regra de custo
 
-- [x] F1. `cd aula-05-rds && terraform destroy` → `yes`.
+- [x] F1. `cd aula-05 && terraform destroy` → `yes`.
 - [x] F2. Esvaziar bucket: `Versions` + `DeleteMarkers` (script Plan §5).
-- [x] F3. `cd ../aula-05-backend && terraform destroy` → `yes`.
+- [x] F3. `cd ../aula-05/backend && terraform destroy` → `yes`.
 - [x] F4. **Verif.:** `terraform state list` vazio (2×); `aws rds describe-db-instances`
       sem `technova-db`; `aws s3 ls | grep technova` vazio; `aws dynamodb list-tables`
       sem `technova-terraform-locks`. → **CA11**
-- [x] F5. 🖥️ remover `aula-05-rds/terraform.tfvars`. (chave `~/.ssh/technova-key*` fica p/ reuso)
+- [x] F5. 🖥️ remover `aula-05/terraform.tfvars`. (chave `~/.ssh/technova-key*` fica p/ reuso)
 
 ## Bloco G — Documentação e entrega  🖥️ / 👤
 
-- [x] G1. `aula-05-rds/README.md` — template do TF.md (design, menor privilégio c/ 2
+- [x] G1. `aula-05/README.md` — template do TF.md (design, menor privilégio c/ 2
       exemplos + "e se FullAccess", diagrama, comandos, reflexão manual×Terraform) +
       reflexão **Spec-Driven × manual** (lab parte 2 §6). → **CA12**
 - [ ] G2. `entregas/aula-05/6325149/entrega.md` (fork, branch `entregas/aula-05/6325149`):
       modelo TF.md + checklist marcado + EV1/EV2/EV3. → **CA10**
 - [x] G3. 🖥️ `git status` sem segredos nos 2 repos (`*.tfstate`, `terraform.tfvars`,
       `*.pem`, `aws-creds.sh`). → **CA9**
-- [ ] G4. Portfólio: branch `feature/aula-05-rds-remote-state` → commit (Conventional
+- [ ] G4. Portfólio: branch `feature/aula-05-remote-state` → commit (Conventional
       Commits + corpo) → merge `--no-ff` na `main` → push. Inclui `specs/`.
 - [ ] G5. 👤 Fork: commit da `entrega.md` → push → PR
       `[Aula 05] RA: 6325149 - GABRIEL REIS CUNHA` p/ `AleTavares/devops_20262:main`.

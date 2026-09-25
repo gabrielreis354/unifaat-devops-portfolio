@@ -4,7 +4,7 @@
 > Base: `devops_20262/aula-06/TF.md` (fonte autoritativa — seguida estritamente),
 > com referência de padrões de código em `aula-06/laboratorio-parte1.md` e
 > `aula-06/laboratorio-parte2.md`.
-> Convenções herdadas: `unifaat-devops-portfolio/aula-05-rds/` (tags, variáveis,
+> Convenções herdadas: `unifaat-devops-portfolio/aula-05/` (tags, variáveis,
 > RDS PostgreSQL) e `specs/001-aula05-rds-remote-state/` (formato de SPEC).
 
 ## 1. Objetivo
@@ -183,7 +183,7 @@ aula-06/
 - **Segurança:** `db_password` sempre `sensitive = true` e fora do
   versionamento (`terraform.tfvars` real no `.gitignore`; só
   `terraform.tfvars.example` versionado).
-- **Convenções:** seguir o estilo de `aula-05-rds/` (tags, nomenclatura,
+- **Convenções:** seguir o estilo de `aula-05/` (tags, nomenclatura,
   `README.md` com reflexões reais) e os padrões de código dos labs (Lab
   Parte 2 para `vpc`/`ec2`/composição; Lab Parte 1 para `security-group`,
   que não muda entre as partes).
@@ -233,7 +233,7 @@ aula-06/
 ## 7. Riscos e questões em aberto
 
 - **R1 — Módulo `rds` não tem exemplo nos labs:** será desenhado a partir do
-  `aula-05-rds/rds.tf` já existente, adaptado às variáveis pedidas pelo
+  `aula-05/rds.tf` já existente, adaptado às variáveis pedidas pelo
   Requisito 4. Risco baixo — mesma lógica já validada na aula-05.
 - **R2 — `terraform validate` de módulos isolados:** módulos filhos (sem
   `provider` próprio) não rodam `validate` sozinhos da forma usual; a

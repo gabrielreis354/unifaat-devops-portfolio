@@ -23,7 +23,7 @@ aula-06/
 Cada ambiente em `environments/` é um **root module independente** — tem seu
 próprio state, providers e variáveis — e chama os 4 módulos com valores
 próprios. Não existe backend remoto aqui (fora do escopo desta aula; ver
-`../aula-05-backend/` para o padrão S3+DynamoDB usado na aula-05).
+`../aula-05/backend/` para o padrão S3+DynamoDB usado na aula-05).
 
 ## Arquitetura — Diagrama de Dependências
 
@@ -177,7 +177,7 @@ module "api_server" {
 **Descrição:** RDS PostgreSQL reutilizável — DB Subnet Group + instância
 com configurações sensatas para desenvolvimento (`skip_final_snapshot`,
 `storage_encrypted`, `publicly_accessible = false`). Não existe exemplo
-pronto nos labs desta aula; foi adaptado do `aula-05-rds/rds.tf` (já
+pronto nos labs desta aula; foi adaptado do `aula-05/rds.tf` (já
 validado com `terraform apply` real na aula-05).
 
 **Inputs:**
@@ -229,7 +229,7 @@ novo, em vez de ~90).
 - Acesso ao **AWS Academy Learner Lab** (credenciais via `source
   aws-creds.sh` na raiz do repositório — reaproveita o script da aula-05)
 - Key pair `technova-key` já existente na conta (`ssh-keygen` — ver
-  `aula-05-rds/README.md`); os módulos **não** criam a chave, só a referenciam.
+  `aula-05/README.md`); os módulos **não** criam a chave, só a referenciam.
   > **Nota prática:** a conta do AWS Academy Learner Lab pode rotacionar
   > entre sessões/semanas. Se der `InvalidKeyPair.NotFound` num `apply`,
   > reimporte a chave pública já gerada na conta atual:
