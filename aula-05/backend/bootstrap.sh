@@ -58,12 +58,19 @@ aws s3api put-public-access-block --bucket "$BUCKET" \
   BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 echo "Block Public Access: 4/4 true"
 
-# 7) Verificacao
+# 7) Tags (Name, Project, Aula) - o bucket fica fora do Terraform, entao
+#    as tags que o default_tags aplicaria sao definidas aqui
+aws s3api put-bucket-tagging --bucket "$BUCKET" \
+  --tagging "TagSet=[{Key=Name,Value=$BUCKET},{Key=Project,Value=TechNova},{Key=Aula,Value=05},{Key=Purpose,Value=Terraform Remote State}]"
+echo "Tags: Name, Project, Aula, Purpose"
+
+# 8) Verificacao
 echo
 echo "==== VERIFICACAO ===="
 aws s3api get-bucket-versioning --bucket "$BUCKET"
 aws s3api get-bucket-encryption --bucket "$BUCKET"
 aws s3api get-public-access-block --bucket "$BUCKET"
+aws s3api get-bucket-tagging --bucket "$BUCKET"
 
 echo
 echo "==== Configure o backend \"s3\" em ../providers.tf ===="
