@@ -1,5 +1,7 @@
 # TechNova API
 
+[![CI Aula 08](https://github.com/gabrielreis354/unifaat-devops-portfolio/actions/workflows/ci-aula08.yml/badge.svg)](https://github.com/gabrielreis354/unifaat-devops-portfolio/actions/workflows/ci-aula08.yml)
+
 API de gestão de pedidos da TechNova, usada como base nos laboratórios de CI/CD (Aula 08 em diante).
 
 > **📦 Pasta base para os labs.** Em vez de criar cada arquivo à mão, **copie esta pasta inteira** para dentro da pasta da aula no seu repositório `unifaat-devops-portfolio`. Veja a seção [Como usar nos labs](#como-usar-nos-labs).
@@ -106,3 +108,23 @@ A partir daí, siga o laboratório para criar o workflow em `.github/workflows/`
 - ESLint (linting)
 - Docker
 - GitHub Actions (CI)
+
+---
+
+## CI Pipeline (Aula 08)
+
+Workflow: [`.github/workflows/ci-aula08.yml`](../.github/workflows/ci-aula08.yml) (fica na raiz do repositório, pois o GitHub só executa workflows de lá).
+
+```
+push (main) / pull_request ──► lint ──► test (Node 18 e 20) ──► build (Docker + smoke test)
+                                                                   └─► comentário no PR
+```
+
+| Job | O que faz |
+|-----|-----------|
+| `lint` | ESLint + verificação do secret `AWS_REGION` |
+| `test` | Jest com coverage em matrix Node 18/20; coverage publicado como artifact |
+| `build` | `docker build` taggeado com `github.sha`, smoke test em `/health`, remoção do container |
+| `pr-comment` | Comenta o resultado em Pull Requests |
+
+Extras: cache do npm, `concurrency` cancelando runs antigos e `permissions` mínimas.
