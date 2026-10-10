@@ -58,3 +58,5 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 module.exports = app;
+
+const naoUsada = "erro intencional";
