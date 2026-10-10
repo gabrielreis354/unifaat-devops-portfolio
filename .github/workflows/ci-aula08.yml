@@ -1,0 +1,140 @@
+name: CI Aula 08
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aula-08/**'
+      - '.github/workflows/ci-aula08.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aula-08/**'
+      - '.github/workflows/ci-aula08.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-aula08-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: aula-08
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: aula-08/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar ESLint
+        run: npm run lint
+
+      - name: Verificar secret configurado
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          test -n "$AWS_DEFAULT_REGION" || { echo "Secret AWS_REGION não configurado"; exit 1; }
+          # Valor fictício (não sensível): o GitHub o exibe mascarado como ***
+          echo "AWS_REGION=$AWS_DEFAULT_REGION"
+
+  test:
+    name: Tests (Node ${{ matrix.node-version }})
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20']
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: aula-08/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar testes com coverage
+        run: npm run test:ci
+
+      - name: Publicar relatório de coverage
+        if: matrix.node-version == '20'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: aula-08/coverage/
+          retention-days: 14
+
+  build:
+    name: Build (Docker)
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Build da imagem Docker
+        run: docker build -t technova-api:${{ github.sha }} .
+
+      - name: Smoke test do container
+        run: |
+          docker run -d --name smoke -p 3000:3000 technova-api:${{ github.sha }}
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:3000/health && exit 0
+            sleep 1
+          done
+          docker logs smoke
+          exit 1
+
+      - name: Remover container
+        if: always()
+        run: docker rm -f smoke
+
+  pr-comment:
+    name: Comentário no PR
+    needs: [lint, test, build]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comentar resultado do CI no PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '## CI Aula 08',
+                '',
+                '| Estágio | Status |',
+                '|---------|--------|',
+                '| Lint (ESLint) | ✅ |',
+                '| Tests (Jest, Node 18 e 20) | ✅ |',
+                '| Build (Docker + smoke test) | ✅ |',
+                '',
+                `Commit: \`${context.sha.substring(0, 7)}\``,
+              ].join('\n'),
+            });
