@@ -22,7 +22,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: aula-08
+    working-directory: aula-08/technova-api
 
 jobs:
   lint:
@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: aula-08/package-lock.json
+          cache-dependency-path: aula-08/technova-api/package-lock.json
 
       - name: Instalar dependências
         run: npm ci
@@ -69,7 +69,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: aula-08/package-lock.json
+          cache-dependency-path: aula-08/technova-api/package-lock.json
 
       - name: Instalar dependências
         run: npm ci
@@ -82,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: aula-08/coverage/
+          path: aula-08/technova-api/coverage/
           retention-days: 14
 
   build:
