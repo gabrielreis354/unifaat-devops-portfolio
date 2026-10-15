@@ -1,8 +1,16 @@
 node_modules
+npm-debug.log*
 coverage
 .env
+.env.*
 *.log
 dist
 .git
 .gitignore
+.github
 __tests__
+*.test.js
+.eslintrc*
+jest.config*
+README.md
+docker-compose*.yml
