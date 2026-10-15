@@ -1,0 +1,129 @@
+name: Security Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**.js'
+      - '**.ts'
+      - 'Dockerfile*'
+      - '**/Dockerfile*'
+      - 'docker-compose*'
+      - '.env*'
+      - 'package*.json'
+
+concurrency:
+  group: security-scan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      DOCKERFILE: aula-08/technova-api/Dockerfile
+      REPORT: /tmp/security-report.md
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Coletar linhas adicionadas no PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Exclui os arquivos que citam os próprios padrões (senão o scan se auto-detecta)
+          git diff "origin/$BASE_REF...HEAD" -- . \
+            ':(exclude).github/scripts' \
+            ':(exclude).github/workflows/security-scan.yml' \
+            ':(exclude)*.md' \
+            ':(exclude)package-lock.json' \
+            | grep -E '^\+' | grep -vE '^\+\+\+' > /tmp/added.txt || true
+          echo "Linhas adicionadas analisadas: $(wc -l < /tmp/added.txt)"
+
+      - name: Verificar secrets no código
+        id: secrets-check
+        run: |
+          {
+            echo "## 🔒 Security Scan Results"
+            echo ""
+            echo "### Verificação de Secrets Hardcoded"
+            echo ""
+          } > "$REPORT"
+          FOUND=0
+          check() { # $1 = regex, $2 = mensagem
+            if grep -qiE "$1" /tmp/added.txt; then
+              echo "- 🔴 **CRITICAL:** $2" >> "$REPORT"
+              FOUND=1
+            fi
+          }
+          check 'AKIA[0-9A-Z]{16}' 'Possível AWS Access Key detectada!'
+          check "password[[:space:]]*[:=][[:space:]]*['\"][^'\"]{4,}" 'Possível password hardcoded!'
+          check 'BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY' 'Chave privada encontrada no código!'
+          check 'jwt[_-]?secret[[:space:]]*[:=]' 'JWT secret hardcoded!'
+          if [ "$FOUND" -eq 0 ]; then
+            echo "✅ Nenhum secret hardcoded detectado." >> "$REPORT"
+          fi
+          echo "found=$FOUND" >> "$GITHUB_OUTPUT"
+
+      - name: Verificar Dockerfile
+        run: |
+          {
+            echo ""
+            echo "### Verificação de Dockerfile"
+            echo ""
+          } >> "$REPORT"
+          if [ -f "$DOCKERFILE" ]; then
+            if grep -q '^USER' "$DOCKERFILE"; then
+              echo "- ✅ Dockerfile define usuário não-root" >> "$REPORT"
+            else
+              echo "- 🟡 **WARNING:** Dockerfile não define USER (roda como root)" >> "$REPORT"
+            fi
+            if grep -qE '^FROM.*:latest' "$DOCKERFILE"; then
+              echo "- 🟡 **WARNING:** FROM usa tag :latest (não reproduzível)" >> "$REPORT"
+            fi
+            if grep -q 'HEALTHCHECK' "$DOCKERFILE"; then
+              echo "- ✅ HEALTHCHECK configurado" >> "$REPORT"
+            else
+              echo "- 🔵 **INFO:** Considere adicionar HEALTHCHECK" >> "$REPORT"
+            fi
+          else
+            echo "- ℹ️ Dockerfile não encontrado em \`$DOCKERFILE\`" >> "$REPORT"
+          fi
+
+      - name: Postar ou atualizar comentário no PR
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/security-report.md', 'utf8');
+            const marker = '## 🔒 Security Scan Results';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number
+            });
+            const existing = comments.find(
+              (c) => c.user.type === 'Bot' && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Quality gate (secret encontrado bloqueia o PR)
+        if: ${{ steps.secrets-check.outputs.found == '1' }}
+        run: |
+          echo "::error::PR bloqueado: possível secret hardcoded. Veja o comentário do Security Scan."
+          exit 1

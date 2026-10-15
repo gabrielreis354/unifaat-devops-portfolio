@@ -1,0 +1,78 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ai-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # histórico completo: necessário para o git diff contra a base
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Testar o script de análise
+        run: node --test .github/scripts/ai-review.test.js
+
+      - name: Obter diff do PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/$BASE_REF...HEAD" > /tmp/pr-diff.txt
+
+      - name: Executar análise de código
+        id: analysis
+        env:
+          DIFF_FILE: /tmp/pr-diff.txt
+          RESULT_FILE: /tmp/ai-review-result.md
+        run: node .github/scripts/ai-review.js
+
+      - name: Postar ou atualizar comentário no PR
+        if: ${{ !cancelled() && steps.analysis.outcome == 'success' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/ai-review-result.md', 'utf8');
+            const marker = '## 🤖 AI Code Review - TechNova';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number
+            });
+            const existing = comments.find(
+              (c) => c.user.type === 'Bot' && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              console.log('Comentário atualizado:', existing.id);
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              console.log('Novo comentário criado');
+            }
+
+      # Quality gate: roda por último, depois do comentário, para o dev ver os achados.
+      - name: Quality gate (CRITICAL bloqueia o PR)
+        if: ${{ steps.analysis.outputs.critical == 'true' }}
+        run: |
+          echo "::error::PR bloqueado: há achados CRITICAL. Veja o comentário do AI Review."
+          exit 1
