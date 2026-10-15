@@ -43,7 +43,7 @@ docker run -d --name technova -p 3000:3000 ghcr.io/gabrielreis354/technova-api:1
 # Publicar uma nova versão: criar a tag semver e enviar
 git tag v1.0.2 -m "Release 1.0.2" && git push origin v1.0.2
 
-# Testar o AI review localmente (27 testes) e rodá-lo sobre o seu diff
+# Testar o AI review localmente (28 testes) e rodá-lo sobre o seu diff
 node --test .github/scripts/ai-review.test.js
 git diff main...HEAD > /tmp/pr-diff.txt && node .github/scripts/ai-review.js
 ```

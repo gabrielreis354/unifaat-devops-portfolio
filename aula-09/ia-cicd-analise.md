@@ -59,7 +59,7 @@ Responda em Markdown, com uma tabela. Considere apenas as linhas adicionadas.
 <diff>…</diff>
 ```
 
-Um modelo entenderia a intenção (por exemplo, uma variável vinda do usuário que chega numa query) e acharia menos falsos positivos em texto, mas seria não determinístico, mais lento e pago. As regras são previsíveis, gratuitas e testáveis: o script tem 27 testes (`node --test`) que rodam no próprio workflow antes da análise.
+Um modelo entenderia a intenção (por exemplo, uma variável vinda do usuário que chega numa query) e acharia menos falsos positivos em texto, mas seria não determinístico, mais lento e pago. As regras são previsíveis, gratuitas e testáveis: o script tem 28 testes (`node --test`) que rodam no próprio workflow antes da análise.
 
 ## 4. Quality gate
 
@@ -85,7 +85,7 @@ Um modelo entenderia a intenção (por exemplo, uma variável vinda do usuário 
 
 ## 6. Limitações identificadas
 
-- **Falsos positivos:** `password = 'exemplo'` num teste ou fixture dispara CRITICAL; por isso há lista de arquivos ignorados.
+- **Falsos positivos:** na primeira execução, o próprio PR do pipeline recebeu 2 WARNINGs de `console.log` que estavam dentro de um `github-script` num arquivo YAML; as regras de `console.log` e `catch` vazio passaram a valer só em arquivos de código (`.js/.ts`). Além disso, `password = 'exemplo'` num teste ou fixture dispara CRITICAL; por isso há lista de arquivos ignorados.
 - **Falsos negativos:** a regra de secret só vê literais entre aspas; uma credencial montada por concatenação ou codificada em base64 passa. SQL injection só é pega quando a string SQL aparece na mesma linha do `+`/`${}`; uma query montada em várias linhas escapa.
 - **Contexto limitado:** vê só o diff, não o sistema: não sabe se uma variável vem de input do usuário, se há sanitização mais acima ou se o `console.log` é um logger de verdade.
 - **Não entende lógica de negócio:** um bug de cálculo com sintaxe perfeita passa.

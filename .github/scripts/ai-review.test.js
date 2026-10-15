@@ -75,6 +75,12 @@ for (const file of ['.github/scripts/ai-review.js', '.github/scripts/ai-review.t
   });
 }
 
+test('console.log e catch vazio só valem em arquivos de código (YAML com github-script não dispara)', () => {
+  const yml = diffOf('.github/workflows/x.yml', "console.log('ok');", 'try { a(); } catch (e) {}');
+  assert.deepStrictEqual(analyzeDiff(yml), []);
+  assert.strictEqual(analyzeDiff(diffOf('src/app.ts', "console.log('ok');")).length, 1);
+});
+
 test('relatório sem achados é positivo e avisa que não substitui o humano', () => {
   const report = generateReport([]);
   assert.match(report, /## 🤖 AI Code Review - TechNova/);

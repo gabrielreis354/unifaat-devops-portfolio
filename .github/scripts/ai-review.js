@@ -23,6 +23,8 @@ const IGNORED_FILES = [
   /(^|\/)package-lock\.json$/
 ];
 
+const CODE_FILES = /\.(js|jsx|ts|tsx|mjs|cjs)$/;
+
 // Regras sem a flag /g: um achado por regra e por linha, sem estado entre chamadas.
 const RULES = [
   {
@@ -58,12 +60,14 @@ const RULES = [
   {
     pattern: /\bconsole\.(log|debug|info)\s*\(/,
     message: 'console.log em código de produção (remover ou usar logger)',
-    severity: SEVERITY.WARNING
+    severity: SEVERITY.WARNING,
+    onlyFiles: CODE_FILES
   },
   {
     pattern: /catch\s*(\(\s*\w*\s*\))?\s*\{\s*\}/,
     message: 'Catch vazio - erros silenciados podem esconder bugs',
-    severity: SEVERITY.WARNING
+    severity: SEVERITY.WARNING,
+    onlyFiles: CODE_FILES
   },
   {
     pattern: /0\.0\.0\.0/,
@@ -109,6 +113,7 @@ function analyzeDiff(diffContent) {
     if (isAdded && !isIgnored(currentFile)) {
       const code = line.substring(1);
       for (const rule of RULES) {
+        if (rule.onlyFiles && !rule.onlyFiles.test(currentFile)) continue;
         if (rule.pattern.test(code)) {
           findings.push({
             file: currentFile,
