@@ -1,8 +1,9 @@
-name: CI Aula 08
+name: CI — TechNova API
 
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
     paths:
       - 'aula-08/**'
       - '.github/workflows/ci-aula08.yml'
@@ -15,7 +16,8 @@ on:
 
 concurrency:
   group: ci-aula08-${{ github.ref }}
-  cancel-in-progress: true
+  # Só cancela runs de PR; nunca interrompe uma publicação de imagem em andamento
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -110,6 +112,51 @@ jobs:
         if: always()
         run: docker rm -f smoke
 
+  push-image:
+    name: Push (ghcr.io)
+    needs: [lint, test, build]
+    # Publica só em push para main ou em tag v*.*.* — nunca em pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/technova-api
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extrair metadata (tags e labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: aula-08/technova-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   pr-comment:
     name: Comentário no PR
     needs: [lint, test, build]
@@ -127,7 +174,7 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                '## CI Aula 08',
+                '## CI — TechNova API',
                 '',
                 '| Estágio | Status |',
                 '|---------|--------|',
