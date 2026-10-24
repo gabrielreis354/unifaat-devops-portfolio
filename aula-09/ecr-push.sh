@@ -90,7 +90,10 @@ aws ecr get-login-password --region "$REGION" \
 # ---- Build ----
 mapfile -t TAGS < <(compute_tags)
 echo "==> Build (contexto: $CONTEXT)..."
-docker build -t "$REPO:local" "$CONTEXT"
+# --provenance=false/--sbom=false: sem os manifestos de attestation o push gera uma imagem
+# simples; com eles o Docker publica um índice OCI, que o scan do ECR não consegue escanear
+# (UnsupportedImageTypeException).
+docker build --provenance=false --sbom=false -t "$REPO:local" "$CONTEXT"
 
 # ---- Tag e push ----
 echo "==> Tags: ${TAGS[*]}"
