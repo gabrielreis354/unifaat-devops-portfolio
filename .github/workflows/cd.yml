@@ -1,0 +1,176 @@
+name: CD Pipeline
+
+# Continuous Deployment: push na main → lint → test → build → push (ECR) → deploy (Recreate) → health check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aula-10/technova-api/**'
+      - '.github/workflows/cd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  IMAGE_NAME: technova-api
+  APP_DIR: aula-10/technova-api
+
+# Nunca cancelar um deploy em andamento
+concurrency:
+  group: cd-aula10
+  cancel-in-progress: false
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: aula-10/technova-api/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    name: Test (Jest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: aula-10/technova-api/package-lock.json
+      - run: npm ci
+      - run: npm run test:ci
+
+  build-push:
+    name: Build e Push (ECR)
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.ecr.outputs.registry }}
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS (Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Learner Lab exige
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login no Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Definir tag (SHA curto, rastreável)
+        id: vars
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build e Push (multi-stage)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          push: true
+          # Docker moderno gera índice OCI com attestation e o scan do ECR o recusa
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    name: Deploy (Recreate via SSH)
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write # comentário de notificação no commit
+    env:
+      REGISTRY: ${{ needs.build-push.outputs.registry }}
+      IMAGE_TAG: ${{ needs.build-push.outputs.tag }}
+    steps:
+      - name: 'Deploy via SSH (Recreate: login ECR, pull, stop, rm, run)'
+        uses: appleboy/ssh-action@v1
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REGISTRY,IMAGE_TAG,DEPLOY_SHA
+          script_stop: true
+          script: |
+            # Primeiro deploy logo após o apply: espera o user_data (Docker + AWS CLI) terminar
+            sudo cloud-init status --wait || true
+
+            echo "Login no Amazon ECR (credenciais do instance profile da EC2)..."
+            aws ecr get-login-password --region us-east-1 \
+              | docker login --username AWS --password-stdin "${REGISTRY}"
+
+            IMAGE="${REGISTRY}/technova-api:${IMAGE_TAG}"
+            echo "Pull ${IMAGE}"
+            docker pull "${IMAGE}"
+
+            echo "Parando container atual (Recreate = downtime de segundos)..."
+            docker stop technova-api || true
+            docker rm technova-api || true
+
+            docker run -d \
+              --name technova-api \
+              -p 3000:3000 \
+              --restart unless-stopped \
+              -e NODE_ENV=production \
+              -e GITHUB_SHA="${DEPLOY_SHA}" \
+              -e DEPLOY_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              "${IMAGE}"
+
+            docker ps --filter name=technova-api
+
+      - name: Health check pós-deploy
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          echo "Aguardando a aplicação iniciar..."
+          sleep 10
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://${EC2_HOST}:3000/health" || true)
+            if [ "$code" = "200" ]; then
+              echo "Health check OK (HTTP $code) na tentativa $i"
+              echo "Versão em execução:"
+              curl -s "http://${EC2_HOST}:3000/version"; echo
+              exit 0
+            fi
+            echo "Tentativa $i/20 - HTTP ${code:-000} - aguardando 5s..."
+            sleep 5
+          done
+          echo "Health check FALHOU após 20 tentativas"
+          exit 1
+
+      - name: Notificar deploy no commit
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `✅ Deploy concluído em produção — imagem \`${process.env.IMAGE_TAG}\` (por @${context.actor}).`,
+            });

@@ -1,0 +1,54 @@
+name: Terraform Destroy
+
+# Destroy só manual e com confirmação explícita (regra de custos do Learner Lab).
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite "destroy" para confirmar a destruição da infraestrutura'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: aula-10/terraform
+
+concurrency:
+  group: terraform-aula10-state
+  cancel-in-progress: false
+
+jobs:
+  terraform-destroy:
+    if: inputs.confirm == 'destroy'
+    runs-on: ubuntu-latest
+    environment: destroy
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciais AWS (Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Learner Lab exige
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init -input=false -backend-config="bucket=technova-tfstate-${{ secrets.AWS_ACCOUNT_ID }}"
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve -input=false -no-color
