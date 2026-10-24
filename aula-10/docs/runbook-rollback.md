@@ -39,4 +39,4 @@ Rollback = recriar o container com uma tag anterior conhecida.
 > Se `docker login` falhar com `ExpiredToken`: a sessão do Learner Lab expirou. Reabra o Lab e atualize os 3 secrets AWS.
 
 ## Execução real (teste do runbook)
-_Preenchido após o teste — ver `gitops-cd-analise.md`, seção “Evidência do rollback”._
+Executado em 2026-10-23: de `sha-64c147f` (1.1.0) para `sha-d88b6d4` (1.0.1); `/health` 200 e `/version` = 1.0.1, confirmado externamente. Saída completa em [`gitops-cd-analise.md`](../gitops-cd-analise.md#evidência-do-rollback).
