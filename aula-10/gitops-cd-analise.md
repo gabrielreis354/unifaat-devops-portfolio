@@ -43,5 +43,65 @@ Imagens têm tag `sha-<commit>` (rastreabilidade commit ↔ ECR ↔ deploy); `la
 ## Bônus implementados
 Comentário do plan atualizado (sem duplicar) · `terraform fmt -check` · deploy com `GITHUB_SHA` no container · aviso de destroy no plan · notificação como comentário no commit · workflow de destroy manual com confirmação · GitHub Environment `production` (deploy) e `destroy`.
 
-## Evidências da execução
-_Preenchidas após a execução no Learner Lab (links de PRs/runs, saídas de CLI, rollback)._
+## Evidências da execução (Learner Lab, 2026-10-23)
+
+| Etapa | Evidência |
+|---|---|
+| Plan no PR 1 (infra base: 4 to add) | PR #11 — print `screenshots/plan-pr-comment.png` |
+| Apply no merge do PR 1 (4 added) | run `terraform-apply` do merge do PR #11 (outputs: EC2 `i-04fa90bdbb55eb752`, SG `sg-09fb4a0701dfcac12`, ECR) |
+| Plan no PR 2 (regra HTTPS: 1 to add, 0 to destroy) | PR #12 |
+| Apply no merge do PR 2 | run https://github.com/gabrielreis354/unifaat-devops-portfolio/actions/runs/40049192443 — print `screenshots/apply-success.png` |
+| CD completo (lint → test → build → push → deploy) | run https://github.com/gabrielreis354/unifaat-devops-portfolio/actions/runs/40049695435 — print `screenshots/cd-pipeline-green.png` |
+| Health check pós-deploy | mesmo run — print `screenshots/health-check-pass.png` (`Health check OK (HTTP 200) na tentativa 1`, `/version` = 1.1.0, commit `64c147f`) |
+| Rollback | seção abaixo |
+| Destroy | run https://github.com/gabrielreis354/unifaat-devops-portfolio/actions/runs/40050125833 — `Destroy complete! Resources: 5 destroyed.` |
+
+### Observação: primeiro run do CD vermelho
+O merge do PR 1 disparou o apply **e** o CD ao mesmo tempo. O deploy falhou com `missing server host` porque o secret `EC2_HOST` só pode ser criado depois do primeiro apply (o IP vem do output). Depois de cadastrar o secret, reexecutei apenas o job que falhou e o pipeline fechou verde (health check OK, `/version` com o commit `d88b6d4`). Em um ambiente definitivo o IP seria fixo (Elastic IP/DNS) e o secret já existiria.
+
+### Tags (ressalva de entregas anteriores) — `aws ec2 describe-tags` / `aws ecr list-tags-for-resource`
+```
+instance         Aula=10
+instance         Environment=prod
+instance         ManagedBy=terraform
+instance         Name=technova-api
+instance         Project=technova
+key-pair         Aula=10
+key-pair         Environment=prod
+key-pair         ManagedBy=terraform
+key-pair         Name=technova-deploy-key
+key-pair         Project=technova
+security-group   Aula=10
+security-group   Environment=prod
+security-group   ManagedBy=terraform
+security-group   Name=technova-api-sg
+security-group   Project=technova
+volume           Aula=10
+volume           Environment=prod
+volume           ManagedBy=terraform
+volume           Name=technova-api-root
+volume           Project=technova
+
+ECR technova-api: Project=technova, Environment=prod, ManagedBy=terraform, Aula=10, Name=technova-api
+```
+Todas vêm de `local.common_tags` + `Name` via `merge()` em cada recurso.
+
+### Segurança do repositório
+- `aula-10/.gitignore` ignora `.terraform/`, `*.tfstate*`, `tfplan`, `*.tfvars`, `.env`, `*.pem` e `technova-deploy.key`.
+- `git ls-files` não lista state, `.env`, `.pem`, chave privada nem `.tfvars` (só `technova-deploy.pub`, chave **pública**). A chave privada ficou fora do repositório (apenas no secret `EC2_SSH_KEY`, removido ao final).
+- Key pair automatizado: `aws_key_pair.deploy` lê a `.pub` versionada (sem passo manual de `InvalidKeyPair.NotFound`).
+
+### Evidência do rollback
+Tags no ECR: `sha-d88b6d4` (1.0.1) e `sha-64c147f` (1.1.0, `latest`). Seguindo o runbook, na EC2: login no ECR → pull de `sha-d88b6d4` → stop/rm → run. Saída real:
+```
+--- antes:  {"version":"1.1.0","commit":"64c147fd4ce7553fcbf5ee594f816b68fc9c03ee",...}
+Login Succeeded
+<ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/technova-api:sha-d88b6d4
+--- depois: {"status":"ok",...}
+{"version":"1.0.1","commit":"sha-d88b6d4","deployedAt":"2026-10-24T01:29:56Z"}
+<ACCOUNT>.dkr.ecr.us-east-1.amazonaws.com/technova-api:sha-d88b6d4 Up 6 seconds (healthy)
+```
+`curl` externo em `http://<EC2_HOST>:3000/version` também respondeu `1.0.1`.
+
+### Limpeza (regra de custos)
+Após o destroy: sem EC2, repositório ECR, SG, key pair ou volumes (conferido por CLI) e bucket de state removido. Secrets AWS/EC2 apagados do repositório.
