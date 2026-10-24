@@ -1,0 +1,25 @@
+name: AWS Check
+
+# Valida as credenciais de sessão do Learner Lab antes de rodar Terraform/CD
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configurar credenciais AWS (Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Learner Lab exige
+          aws-region: us-east-1
+
+      - name: Identidade (não pode ser root)
+        run: |
+          ARN=$(aws sts get-caller-identity --query Arn --output text)
+          echo "Sessão válida (identidade não-root)"
+          case "$ARN" in *":root") echo "ERRO: identidade root"; exit 1 ;; esac
