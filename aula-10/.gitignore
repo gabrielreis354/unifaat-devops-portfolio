@@ -1,0 +1,15 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+tfplan
+plan.txt
+crash.log
+*.tfvars
+!example.tfvars
+
+# Segredos
+.env
+*.pem
+technova-deploy.key
