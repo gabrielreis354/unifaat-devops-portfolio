@@ -22,6 +22,12 @@ LABEL org.opencontainers.image.description="TechNova API - Sistema de gestão de
 
 WORKDIR /app
 
+# Hardening (achados do Trivy): atualiza pacotes do Alpine (libssl/libcrypto) e remove
+# o npm/npx da imagem final — o runtime só executa `node server.js`, e o npm embutido
+# na imagem base carrega dependências vulneráveis (tar, minimatch, glob...).
+RUN apk upgrade --no-cache && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 # Usuário não-root
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S technova -u 1001 -G nodejs
