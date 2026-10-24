@@ -37,5 +37,5 @@ variable "ssh_public_key_path" {
 variable "enable_https_rule" {
   description = "Libera HTTPS (443) no Security Group — mudança usada para demonstrar o fluxo GitOps"
   type        = bool
-  default     = false
+  default     = true
 }
