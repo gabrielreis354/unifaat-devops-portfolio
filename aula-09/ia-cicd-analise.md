@@ -125,3 +125,29 @@ Além do AI review do código, a imagem foi escaneada com o **Trivy** (`aquasec/
 | Após `apk upgrade` + remoção do npm/npx | 0 | 0 | **0** (e 0 de qualquer severidade, 0 secrets) |
 
 Correção no [`Dockerfile`](technova-api/Dockerfile): o estágio de runtime roda `apk upgrade --no-cache` e remove `/usr/local/lib/node_modules/npm`, `npm` e `npx`, porque a imagem só executa `node server.js` e o npm da imagem base carregava as dependências vulneráveis. `trivy config` no Dockerfile: 0 misconfigurações. Efeito colateral aceito: a imagem não tem mais npm (não é possível `npm install` dentro do container, o que é desejável em produção).
+
+## 8. Evidências da execução (Learner Lab, 23/10/2026)
+
+Identidade: `assumed-role/voclabs` (não root), região `us-east-1`. O repositório ECR foi **destruído** (`delete-repository --force`) depois da coleta; `describe-repositories` retornou `[]`.
+
+| Item | Resultado |
+|------|-----------|
+| Repositório | `technova-api`, `scanOnPush=True`, tags mutáveis |
+| Lifecycle policy | 2 regras: expira imagens sem tag após 1 dia; mantém as 10 imagens com tag mais recentes |
+| `v1.0.0` (commit `499d3ff`) | tags `1.0.0`, `1.0`, `1`, `latest`, `sha-499d3ff` |
+| `v1.0.1` (commit `4a7900e`) | tags `1.0.1`, `1.0`, `1`, `latest`, `sha-4a7900e` (digest `a16a6eb6…`); `1.0.0` ficou só com `1.0.0` e `sha-499d3ff` (digest `2c2f7a15…`) |
+| Pull/run/`/health` | `1.0.1` → HTTP 200; rollback para `1.0.0` → HTTP 200; usuário `technova` |
+| Scan do ECR (`1.0.1`) | `COMPLETE`, 0 achados |
+
+**Problema encontrado e corrigido (PR #8):** a `1.0.0` foi publicada como **índice OCI** (a imagem mais um manifesto de attestation, comportamento padrão do Docker 29), e o ECR recusou o scan com `UnsupportedImageTypeException`. O script passou a usar `docker build --provenance=false --sbom=false`; a `1.0.1` é uma imagem simples e foi escaneada. A `1.0.0` continua usável para pull e rollback, mas não é escaneável.
+
+**Observação:** o `/health` da `1.0.1` ainda reporta `"version":"1.0.0"`, porque o `server.js` lê `npm_package_version`, que só existe quando o app roda via `npm start` (a imagem usa `node server.js`). Quem distingue as versões são as tags e os digests.
+
+**AI review e quality gate** (PR de demonstração [#9](https://github.com/gabrielreis354/unifaat-devops-portfolio/pull/9), fechado sem merge): 1º push com `console.log`, catch vazio e TODO → 3 achados, 0 CRITICAL, checks verdes. 2º push com secrets, SQL injection e `eval()` → 7 achados (4 CRITICAL), o **mesmo comentário foi atualizado** e os checks `AI Code Review` e `Security Scan` falharam.
+
+| Print | Arquivo |
+|-------|---------|
+| Console do ECR com as tags | [`screenshots/ecr-console.png`](screenshots/ecr-console.png) |
+| `ecr-push.sh` concluído | [`screenshots/ecr-push-ok.png`](screenshots/ecr-push-ok.png) |
+| Comentário do AI review | [`screenshots/ai-review-comment.png`](screenshots/ai-review-comment.png) |
+| Quality gate bloqueando | [`screenshots/quality-gate-block.png`](screenshots/quality-gate-block.png) |
