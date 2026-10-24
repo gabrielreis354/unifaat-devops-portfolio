@@ -1,21 +1,42 @@
-# Análise: Docker Registry e IA no CI/CD (Aula 09)
+# Análise: Docker Registry (Amazon ECR) e IA no CI/CD (Aula 09)
 
-Pipeline da TechNova API: `lint → test → build → push-image` ([`ci-aula08.yml`](../.github/workflows/ci-aula08.yml)), mais [`ai-review.yml`](../.github/workflows/ai-review.yml) e [`security-scan.yml`](../.github/workflows/security-scan.yml) em todo Pull Request. A API continua em [`aula-08/technova-api/`](../aula-08/technova-api/): o professor pediu que a versão corrente do projeto evolua no mesmo lugar a cada aula.
+Pipeline da TechNova API: a imagem é publicada no **Amazon ECR** pelo script [`ecr-push.sh`](ecr-push.sh) (Learner Lab, `us-east-1`); o CI ([`ci-aula08.yml`](../.github/workflows/ci-aula08.yml): `lint → test → build → push-image`), o [`ai-review.yml`](../.github/workflows/ai-review.yml) e o [`security-scan.yml`](../.github/workflows/security-scan.yml) rodam em Pull Requests. A aplicação usada no build do ECR está em [`technova-api/`](technova-api/).
+
+## 0. Por que Amazon ECR (e as restrições do Learner Lab)
+
+| Critério | Amazon ECR | ghcr.io | Docker Hub |
+|----------|-----------|---------|------------|
+| Onde a infra roda | **mesma conta AWS** (EC2/ECS/EKS puxam direto) | fora da AWS | fora da AWS |
+| Visibilidade padrão | **privado** | privado (pode ficar público) | público no plano grátis |
+| Scan de vulnerabilidades | integrado (*scan on push*) | não nativo | pago/limitado |
+| Custo | ~US$ 0,10/GB/mês (centavos; coberto pelo crédito do Lab) | grátis | grátis com limites |
+| Autenticação | `aws ecr get-login-password` (token de ~12 h) | `GITHUB_TOKEN` | usuário/PAT |
+
+O ECR foi escolhido porque o deploy dos próximos módulos acontece na AWS: a imagem fica ao lado de onde vai rodar e o controle de acesso é o da própria conta. Restrições do **Learner Lab** que moldaram a solução:
+
+- **Credenciais temporárias** (`aws_access_key_id` + `aws_secret_access_key` + `aws_session_token`) que expiram quando a sessão encerra. Por isso o fluxo principal é um **script local**, não um CI com secrets (o `ci.yml` opcional da Parte 7 exigiria atualizar três secrets a cada sessão).
+- **Região fixa `us-east-1`.**
+- **Sem IAM:** não se cria usuário/role; a autenticação usa a role `voclabs` da sessão. O script recusa rodar como `root`.
+- **Sem Bedrock:** ver seção 3.
+- **Custo:** o repositório só existe durante a sessão e é apagado com `delete-repository --force` ao fim (regra de não deixar recurso ativo).
 
 ## 1. Estratégia de tagging
 
-Imagem: `ghcr.io/gabrielreis354/technova-api`.
+Imagem no ECR: `<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/technova-api` (publicada pelo `ecr-push.sh`). O CI também publica no `ghcr.io/gabrielreis354/technova-api` como complemento (mesma política de tags).
 
 | Evento | Tags publicadas | Por quê |
 |--------|-----------------|---------|
-| push na `main` | `sha-a1b2c3d`, `latest` | O SHA liga a imagem ao commit exato (rastreabilidade e rollback preciso); `latest` é só conveniência |
+| qualquer build publicado (script) / push na `main` (CI ghcr.io) | `sha-a1b2c3d`, `latest` | O SHA liga a imagem ao commit exato (rastreabilidade e rollback preciso); `latest` é só conveniência |
 | git tag `v1.2.3` | `1.2.3`, `1.2`, `1` (+ `sha-…`) | Releases comunicáveis; quem quer só correções fixa `1.2`, quem aceita features fixa `1` |
 | pull request | **nenhuma** (job `push-image` fica *skipped*) | PR é código não revisado: não pode gerar imagem no registry |
 
 - **Produção deve usar SHA ou semver completo.** `latest` muda a cada merge e não diz qual código está rodando; serve para desenvolvimento.
-- **Rollback** é um `docker run` com a tag anterior (`1.0.1` → `1.0.0`), sem rebuild.
+- **Rollback** é um `docker pull`/`docker run` com a tag anterior (`1.0.1` → `1.0.0`), sem rebuild.
+- **Tags mutáveis no ECR:** `latest`, `1.0` e `1` precisam se mover a cada release; já `sha-…` e `X.Y.Z` nunca devem ser reescritas. (Tags imutáveis no repositório impediriam mover `latest`.)
+- **Semver a partir do git:** o `ecr-push.sh` lê a tag `vX.Y.Z` do `HEAD` (`git tag --points-at HEAD`) e deriva `X.Y.Z`, `X.Y` e `X`; sem tag, publica só `sha-…` e `latest`.
+- **Limpeza:** *lifecycle policy* expira imagens sem tag após 1 dia e mantém só as 10 mais recentes.
 - **Push condicional** é feito com `if: github.event_name == 'push'` no job; as tags de PR nunca existem.
-- **Autenticação:** `GITHUB_TOKEN` com `permissions: packages: write` só no job `push-image`. Ele é gerado por run, limitado ao repositório e expira ao fim do workflow; um PAT seria uma credencial de longa duração com escopo maior.
+- **Autenticação no ECR:** token temporário do `aws ecr get-login-password` (usuário `AWS`), sem senha fixa. **No CI (ghcr.io):** `GITHUB_TOKEN` com `permissions: packages: write` só no job `push-image`. Ele é gerado por run, limitado ao repositório e expira ao fim do workflow; um PAT seria uma credencial de longa duração com escopo maior.
 - **Cache de layers:** `cache-from/to: type=gha` no `build-push-action`, para o push demorar menos.
 
 ## 2. Padrões que o AI review verifica
@@ -44,9 +65,9 @@ O `security-scan.yml` é um segundo olhar, focado em segurança: secrets (AWS ke
 
 **Fluxo:** PR aberto/atualizado → `git diff origin/<base>...HEAD` → `ai-review.js` classifica → comentário no PR (criado na primeira vez, **atualizado** nos pushes seguintes, procurando o marcador `## 🤖 AI Code Review - TechNova`) → quality gate.
 
-**Nesta entrega a "IA" é baseada em regras** (pattern matching), sem chamada a um modelo de linguagem. A decisão foi do professor: a Opção A do laboratório é suficiente; o Bedrock via Learner Lab seria opcional. Não usei porque ele cobra por token e o CI precisaria de credenciais temporárias do Learner Lab, que expiram a cada sessão.
+**Nesta entrega a "IA" é baseada em regras** (pattern matching), sem chamada a um modelo de linguagem. O **Bedrock não está disponível no AWS Academy Learner Lab** (confirmado pelo professor): o serviço exige habilitar modelos e criar roles de serviço, o que o Lab bloqueia. Testei antes de descartar: com a sessão `voclabs` (não root), `bedrock:ListFoundationModels` e `bedrock:InvokeModel` retornaram *AccessDenied* ("no identity-based policy allows…") em `us-east-1`, `us-west-2` e `us-east-2`, para 20 modelos de 6 provedores. Portanto a Opção A (regras) é a abordagem da entrega e a Opção B é só referência conceitual.
 
-O prompt que o script enviaria a um modelo (Bedrock/Claude) seria:
+O prompt que o script enviaria a um modelo, em um ambiente com Bedrock (referência conceitual, **não executado** no Lab), seria:
 
 ```text
 Você é um revisor de código experiente. Analise o diff de um Pull Request e identifique:
@@ -93,3 +114,14 @@ Um modelo entenderia a intenção (por exemplo, uma variável vinda do usuário 
 - **Complementar às ferramentas tradicionais:** Dependabot (dependências), CodeQL (fluxo de dados), Trivy (vulnerabilidades da imagem).
 - **Custo/latência (no caso de modelo):** cobrança por token e 10–60 s de resposta. Com regras é instantâneo e gratuito.
 - **Problemas encontrados no script do laboratório e corrigidos:** o número de linha era o do diff (não o do arquivo); a regex com flag `/g` guarda estado entre chamadas (`lastIndex`); um SQL montado numa variável (`const q = 'SELECT … ' + id`) não era detectado; o script se auto-bloqueava ao entrar num PR.
+
+## 7. Segurança da imagem (Trivy)
+
+Além do AI review do código, a imagem foi escaneada com o **Trivy** (`aquasec/trivy`, via Docker) antes de publicar. O Trivy não dá nota em letra (como o Docker Scout); usei como critério de "score A" **zero vulnerabilidades HIGH/CRITICAL** e zero secrets na imagem final.
+
+| Momento | Alpine (libssl3/libcrypto3) | npm embutido na base (tar, minimatch, glob…) | Total HIGH/CRITICAL |
+|---------|:---:|:---:|:---:|
+| Dockerfile inicial | 4 | 23 (1 CRITICAL) | **27** |
+| Após `apk upgrade` + remoção do npm/npx | 0 | 0 | **0** (e 0 de qualquer severidade, 0 secrets) |
+
+Correção no [`Dockerfile`](technova-api/Dockerfile): o estágio de runtime roda `apk upgrade --no-cache` e remove `/usr/local/lib/node_modules/npm`, `npm` e `npx`, porque a imagem só executa `node server.js` e o npm da imagem base carregava as dependências vulneráveis. `trivy config` no Dockerfile: 0 misconfigurações. Efeito colateral aceito: a imagem não tem mais npm (não é possível `npm install` dentro do container, o que é desejável em produção).
